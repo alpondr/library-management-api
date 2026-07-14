@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from typing import List
 
 from app.database.database import get_db
 from app.models.models import Book, User, BorrowRecord
 from app.schemas.schemas import BorrowRecordResponse
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_current_admin_user
 
 router = APIRouter(
     prefix="/borrow",
@@ -92,3 +93,31 @@ def return_book(book_id: int, db: Session = Depends(get_db), current_user: User 
         "return_date": active_borrow.return_date,
         "was_overdue": is_overdue
     }
+
+@router.get("/history/me", response_model=List[BorrowRecordResponse])
+def get_my_borrow_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, le=100)
+):
+    """Kullanıcının kendi ödünç geçmişini sayfalı şekilde getirir"""
+    records = db.query(BorrowRecord).filter(
+        BorrowRecord.user_id == current_user.id
+    ).order_by(BorrowRecord.borrow_date.desc()).offset(skip).limit(limit).all()
+    
+    return records
+
+@router.get("/history/all", response_model=List[BorrowRecordResponse])
+def get_all_borrow_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, le=100)
+):
+    """Sadece Admin: Tüm ödünç kayıtlarını sayfalı şekilde getirir"""
+    records = db.query(BorrowRecord).order_by(
+        BorrowRecord.borrow_date.desc()
+    ).offset(skip).limit(limit).all()
+    
+    return records

@@ -79,7 +79,9 @@ def get_books(
     db: Session = Depends(get_db),
     title: Optional[str] = Query(None, description="Kitap başlığına göre arama"),
     author_id: Optional[int] = Query(None, description="Yazar ID'sine göre filtreleme"),
-    category_id: Optional[int] = Query(None, description="Kategori ID'sine göre filtreleme")
+    category_id: Optional[int] = Query(None, description="Kategori ID'sine göre filtreleme"),
+    skip: int = Query(0, ge=0, description="Kaçıncı kayıttan başlanacak (Pagination)"),
+    limit: int = Query(10, le=100, description="Sayfada kaç kayıt gösterilecek (Pagination)")
 ):
     """Kitapları listeleme, arama ve filtreleme endpoint'i (Herkes görebilir)"""
     # Temel sorguyu oluştur
@@ -97,5 +99,6 @@ def get_books(
         # Many-to-Many tabloda arama yapmak için relationship üzerinden any() kullanıyoruz
         query = query.filter(Book.categories.any(Category.id == category_id))
         
-    books = query.all()
+    # Pagination uygula (offset ve limit)
+    books = query.offset(skip).limit(limit).all()
     return books
