@@ -1,10 +1,11 @@
 from fastapi import FastAPI
-from app.routers import auth
+from app.routers import auth, books
 
 app = FastAPI(title="Library Borrowing System API")
 
 # Router'ları ana uygulamaya bağlıyoruz
 app.include_router(auth.router)
+app.include_router(books.router)
 
 @app.get("/")
 def root():
