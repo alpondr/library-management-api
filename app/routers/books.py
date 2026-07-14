@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from typing import List, Optional
 
 from app.database.database import get_db
 from app.models.models import Book, User, Category
@@ -72,3 +73,29 @@ def get_book(book_id: int, db: Session = Depends(get_db), current_user: User = D
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     return book
+
+@router.get("/", response_model=List[BookResponse])
+def get_books(
+    db: Session = Depends(get_db),
+    title: Optional[str] = Query(None, description="Kitap başlığına göre arama"),
+    author_id: Optional[int] = Query(None, description="Yazar ID'sine göre filtreleme"),
+    category_id: Optional[int] = Query(None, description="Kategori ID'sine göre filtreleme")
+):
+    """Kitapları listeleme, arama ve filtreleme endpoint'i (Herkes görebilir)"""
+    # Temel sorguyu oluştur
+    query = db.query(Book)
+    
+    # Filtreleri uygula
+    if title:
+        # SQLAlchemy'de ilike ile büyük/küçük harf duyarsız arama yapıyoruz
+        query = query.filter(Book.title.ilike(f"%{title}%"))
+    
+    if author_id:
+        query = query.filter(Book.author_id == author_id)
+        
+    if category_id:
+        # Many-to-Many tabloda arama yapmak için relationship üzerinden any() kullanıyoruz
+        query = query.filter(Book.categories.any(Category.id == category_id))
+        
+    books = query.all()
+    return books
